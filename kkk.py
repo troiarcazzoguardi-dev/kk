@@ -7,10 +7,6 @@ def run(cmd):
     print(f"[+] {cmd}")
     subprocess.run(cmd, shell=True, check=True)
 
-def write_file(path, content):
-    with open(path, "w") as f:
-        f.write(content.strip() + "\n")
-
 def ensure_line(path, line):
     if os.path.exists(path):
         with open(path, "r") as f:
@@ -19,58 +15,57 @@ def ensure_line(path, line):
     with open(path, "a") as f:
         f.write(line + "\n")
 
+def write_file(path, content):
+    with open(path, "w") as f:
+        f.write(content.strip() + "\n")
+
 def main():
     if os.geteuid() != 0:
         print("[-] Devi eseguire questo script come root (sudo).")
         sys.exit(1)
 
-    print("[*] 1) Creo wrapper /usr/local/bin/set-ulimit.sh...")
-    wrapper_path = "/usr/local/bin/set-ulimit.sh"
+    print("[*] 1) Imposto limiti globali PAM (soft + hard)...")
+    limits_file = "/etc/security/limits.d/99-nofile.conf"
     write_file(
-        wrapper_path,
-        """#!/usr/bin/env bash
-# Wrapper per impostare ulimit a 20000
-ulimit -n 20000
-exec "$@"
-"""
-    )
-    run(f"chmod +x {wrapper_path}")
-
-    print("[*] 2) Creo servizio systemd /etc/systemd/system/ulimit-20000.service...")
-    service_path = "/etc/systemd/system/ulimit-20000.service"
-    write_file(
-        service_path,
-        f"""
-[Unit]
-Description=Set ulimit to 20000 at boot
-After=network.target
-
-[Service]
-Type=oneshot
-ExecStart={wrapper_path} true
-RemainAfterExit=yes
-LimitNOFILE=20000:20000
-
-[Install]
-WantedBy=multi-user.target
+        limits_file,
+        """
+* soft nofile 20000
+* hard nofile 1048576
 """
     )
 
-    print("[*] 3) Abilito e avvio il servizio...")
-    run("systemctl daemon-reload")
-    run("systemctl enable ulimit-20000.service")
-    run("systemctl start ulimit-20000.service")
+    print("[*] 2) Abilito pam_limits per sessioni interattive e non-interattive...")
+    ensure_line("/etc/pam.d/common-session", "session required pam_limits.so")
+    ensure_line("/etc/pam.d/common-session-noninteractive", "session required pam_limits.so")
 
-    print("[*] 4) Imposto kernel fs.file-max...")
+    print("[*] 3) Forzo UsePAM yes in SSH...")
+    sshd_conf = "/etc/ssh/sshd_config"
+    if os.path.exists(sshd_conf):
+        with open(sshd_conf, "r") as f:
+            content = f.read()
+        if "UsePAM yes" not in content:
+            content = content.replace("UsePAM no", "UsePAM yes")
+            if "UsePAM" not in content:
+                content += "\nUsePAM yes\n"
+            with open(sshd_conf, "w") as f:
+                f.write(content)
+    run("systemctl restart ssh || systemctl restart sshd")
+
+    print("[*] 4) Imposto systemd globale (hard limit)...")
+    for conf in ["/etc/systemd/system.conf", "/etc/systemd/user.conf"]:
+        ensure_line(conf, "DefaultLimitNOFILE=1048576")
+    run("systemctl daemon-reexec")
+
+    print("[*] 5) Imposto kernel fs.file-max...")
     ensure_line("/etc/sysctl.conf", "fs.file-max = 1000000")
     run("sysctl -p")
 
     print("\n[✓] CONFIGURAZIONE COMPLETATA")
     print("------------------------------------------------")
     print("⚠️ IMPORTANTE:")
-    print("- Shell già aperte rimangono con soft limit 1024")
-    print("- Ogni nuovo comando lanciato tramite il wrapper o qualsiasi nuovo processo avrà soft limit 20000")
-    print("- Dopo reboot il servizio parte automaticamente e il limite è mantenuto")
+    print("- Le shell già aperte rimangono con soft limit 1024")
+    print("- Aprendo una NUOVA sessione SSH o login locale, il soft limit sarà già 20000")
+    print("- Dopo reboot il comportamento è permanente")
     print("------------------------------------------------")
 
 if __name__ == "__main__":
